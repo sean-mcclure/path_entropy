@@ -27,7 +27,7 @@ body {
 
 #canvas {
     background: black;
-    border: 2px solid white;
+    border: 0px solid white;
 }
 
 [id^=title_wrapper_] {
