@@ -35,14 +35,18 @@ histogram = {
                 tickcolor: 'white',
                 linecolor: 'white',
                 linewidth: 2,
-                color: "white"
+                color: "white",
+                range: [0, 20],
+                tickmode: 'linear'
               },
               yaxis: {
                 title : "Frequency",
                 tickcolor: 'white',
                 linecolor: 'white',
                 linewidth: 2,
-                color: "white"
+                color: "white",
+                range: [0, 20],
+                tickmode: 'linear'
               }
         },
         plotly_config = {
@@ -53,6 +57,10 @@ histogram = {
             type: 'histogram',
             marker: {
                 color: config.normal_person_ball_color,
+                line: {
+                    color: 'black', // Border color
+                    width: 1 // Border width
+                }
                 },
             autobinx: false,
             xbins: {
@@ -66,6 +74,10 @@ histogram = {
             type: 'histogram',
             marker: {
                 color: config.superhero_ball_color,
+                line: {
+                    color: 'black', // Border color
+                    width: 1 // Border width
+                }
                 },
             autobinx: false,
             xbins: {
