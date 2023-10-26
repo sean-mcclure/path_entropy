@@ -165,4 +165,5 @@ function moveGreenBall(ball) {
 
 
 setInterval(updateSimulation, 1000 / 60); // Update simulation approximately 60 times per second
+document.querySelector(".lds-roller").style.display = "none";
 }, 2000)

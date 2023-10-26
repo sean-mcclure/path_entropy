@@ -9,14 +9,16 @@
     <script src="scripts/main.js"></script>
     <script src="scripts/histograms.js"></script>
     <script src="scripts/config.js"></script>
-    <!--<script src="scripts/entropy.js"></script>-->
     <link href="styles/main.css" rel="stylesheet">
+    <link href="styles/loader.css" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 </head>
 
 <body>
-    <h2>Regular vs "Omnipotent" Entropy</h2><br>
+    <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+    <h2>Regular vs "Omnipotent" Entropy<br><span id="author">Sean McClure</span></h2>
+    <button id="rerun_button">RERUN</button>
     <div id="wrapper">
         <div id="item_1">
             <canvas id="canvas" width="500" height="500"></canvas>
@@ -36,4 +38,14 @@
     </div>
     
 </body>
+<script>
+    document.getElementById("rerun_button").addEventListener("click", function() {
+        location.reload();
+    })
+    document.getElementById("author").addEventListener("click", function() {
+        window.open("https://twitter.com/sean_a_mcclure");
+    })
+   
+
+</script>
 </html>
