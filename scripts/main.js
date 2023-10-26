@@ -89,12 +89,17 @@ function updateSimulation() {
     moveRedBall(individualBalls[1]);
     moveGreenBall(individualBalls[0]);
     draw();
+    histogram.line_segment_distribution({
+        individualBalls : individualBalls
+    })
     const greenBallEntropy = calculateEntropy(individualBalls[0].path);
     const redBallEntropy = calculateEntropy(individualBalls[1].path);
 
     // Display entropy values (you can update your HTML to display these values)
-    console.log("Green Ball Entropy:", greenBallEntropy);
-    console.log("Red Ball Entropy:", redBallEntropy);
+    document.getElementById("title_item_1_2").innerText = greenBallEntropy.toFixed(2);
+    document.getElementById("title_item_2_2").innerText = redBallEntropy.toFixed(2);
+    //console.log("Green Ball Entropy:", greenBallEntropy);
+    //console.log("Red Ball Entropy:", redBallEntropy);
 }
 
 function moveRedBall(ball) {

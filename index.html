@@ -7,18 +7,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Bruno+Ace&display=swap" rel="stylesheet">
     <title>Better Heroes - Simulation</title>
     <script src="scripts/main.js"></script>
+    <script src="scripts/histograms.js"></script>
     <script src="scripts/config.js"></script>
     <!--<script src="scripts/entropy.js"></script>-->
     <link href="styles/main.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
 </head>
 
 <body>
-    <h2>Better Heroes</h2>
+    <h2>Regular vs "Omnipotent" Entropy</h2><br>
     <div id="wrapper">
         <div id="item_1">
             <canvas id="canvas" width="500" height="500"></canvas>
         </div>
-        <div id="item_2"></div>
+        <div id="item_2">
+            <div id="title_wrapper_1">
+                <div id="title_item_1_1">Regular Entropy:</div>
+                <div id="title_item_1_2"></div>
+            </div>
+            <div id="regular_histogram"></div>
+            <div id="title_wrapper_2">
+                <div id="title_item_2_1">Omnipotent Entropy:</div>
+                <div id="title_item_2_2"></div>
+            </div>
+            <div id="superhero_histogram"></div>
+        </div>
     </div>
     
 </body>
