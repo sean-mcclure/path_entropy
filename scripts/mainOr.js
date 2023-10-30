@@ -1,5 +1,4 @@
 setTimeout(function() {
-    const blueBallPath = [];
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const numEnvironmentBalls = 50;
@@ -87,108 +86,15 @@ setTimeout(function() {
         ctx.fill();
         ctx.closePath();
     }
-    /*** deep learning */
-    // Define the neural network model
-    const model = tf.sequential();
-    model.add(tf.layers.dense({
-        units: 32,
-        inputShape: [inputArray.length],
-        activation: 'relu'
-    }));
-    model.add(tf.layers.dense({
-        units: 2,
-        activation: 'linear'
-    })); // Output has 2 units for x and y coordinates
-    // Compile the model
-    model.compile({
-        optimizer: 'adam',
-        loss: 'meanSquaredError',
-        metrics: ['accuracy']
-    });
-    // Assume `model` is your TensorFlow.js model
-    function trainModel(inputData, outputData) {
-        const xs = tf.tensor2d(inputData, [inputData.length, inputData[0].length]);
-        const ys = tf.tensor2d(outputData, [outputData.length, outputData[0].length]);
-        model.fit(xs, ys, {
-            epochs: 1,
-            batchSize: inputData.length
-        });
-    }
-
-    function predictNextPosition(path, obstaclePositions) {
-        // Logic to predict the next position based on the path and obstacles
-        // For example, you can use a neural network to predict the next position
-        // Return the predicted position as { x: predictedX, y: predictedY }
-        // For now, let's just return the last position in the path as a placeholder
-        const lastPosition = path[path.length - 1];
-        return {
-            x: lastPosition.x,
-            y: lastPosition.y
-        };
-    }
-
-    function drawPredictedPath(predictedPosition) {
-        // Draw the predicted position as a dotted line
-        ctx.setLineDash([5, 5]); // Set line to dotted
-        ctx.strokeStyle = 'gray';
-        ctx.beginPath();
-        ctx.moveTo(predictedPosition.x, predictedPosition.y);
-        ctx.lineTo(predictedPosition.x, predictedPosition.y); // Draw a single point for demonstration
-        ctx.stroke();
-        ctx.setLineDash([]); // Reset line to solid
-    }
-    /************* */
-    // Define the calculateNextPosition function
-    function calculateNextPosition(currentPosition) {
-        // Your logic to calculate the next position based on the current position
-        // For example, you can implement your own logic or use some external library
-        // Return an object with x and y properties representing the next position
-        return {
-            x: currentPosition.x + 1, // Example logic, update this according to your requirements
-            y: currentPosition.y + 1 // Example logic, update this according to your requirements
-        };
-    }
-    // Initialize arrays to store input and output data
-    const inputData = [];
-    const outputData = [];
 
     function updateSimulation() {
         moveRedBall(individualBalls[1]);
-        // Collect the current position of the blue ball
-        const currentPosition = {
-            x: individualBalls[0].x,
-            y: individualBalls[0].y
-        };
-        // Store the current position in the blue ball's path
-        blueBallPath.push({
-            x: currentPosition.x,
-            y: currentPosition.y
-        });
-        // Update obstaclePositions array (assuming environmentBalls is a global variable)
-        obstaclePositions = environmentBalls.map(ball => [ball.x, ball.y]);
-        // Flatten obstacle positions into a single array
-        const flattenedObstaclePositions = obstaclePositions.flat();
-        // Add current position and obstacle positions to input data
-        const inputArray = [...currentPosition.x, ...currentPosition.y, ...flattenedObstaclePositions];
-        // Predict the next position only if enough path data is available
-        if(blueBallPath.length > 1) {
-            const predictedPosition = predictNextPosition(blueBallPath, flattenedObstaclePositions);
-            // Update the blue ball's position based on the prediction
-            individualBalls[0].x = predictedPosition.x;
-            individualBalls[0].y = predictedPosition.y;
-            // Draw the predicted path as a dotted line
-            drawPredictedPath(predictedPosition);
-        }
         moveGreenBall(individualBalls[0]);
         draw();
-        // Draw the predicted path as a dotted line
-        drawPredictedPath({
-            x: predictedPosition[0],
-            y: predictedPosition[1]
-        });
         histogram.line_segment_distribution({
             individualBalls: individualBalls
         })
+        console.log(individualBalls)
         const greenBallEntropy = calculateEntropy(individualBalls[0].path);
         const redBallEntropy = calculateEntropy(individualBalls[1].path);
         // Display entropy values (you can update your HTML to display these values)

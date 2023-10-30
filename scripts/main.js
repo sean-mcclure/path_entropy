@@ -1,227 +1,183 @@
-document.addEventListener("DOMContentLoaded", function() {
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const numEnvironmentBalls = 50;
-    const ballRadius = 10;
-    const maxX = canvas.width;
-    const maxY = canvas.height;
-    const maxSpeed = 2;
-    const gravitationalForce = 0.1;
-    const environmentBalls = Array.from({ length: numEnvironmentBalls }, () => ({
-        x: Math.random() * (maxX - ballRadius * 2) + ballRadius,
-        y: Math.random() * (maxY - ballRadius * 2) + ballRadius,
-    }));
-    const individualBalls = [{
-        x: maxX / 4,
-        y: maxY / 2,
-        vx: maxSpeed,
-        vy: maxSpeed,
-        path: []
-    }, {
-        x: (maxX * 3) / 4,
-        y: maxY / 2,
-        vx: maxSpeed,
-        vy: maxSpeed,
-        path: []
-    }];
+setTimeout(function() {
 
-    const model = tf.sequential();
-    model.add(tf.layers.dense({
-        units: 32,
-        inputShape: [2 + numEnvironmentBalls * 2],
-        activation: 'relu'
-    }));
-    model.add(tf.layers.dense({
-        units: 2,
-        activation: 'linear'
-    }));
-    model.compile({
-        optimizer: 'adam',
-        loss: 'meanSquaredError'
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const numEnvironmentBalls = 50;
+const ballRadius = 10;
+const maxX = canvas.width;
+const maxY = canvas.height;
+const maxSpeed = 2;
+const gravitationalForce = 0.1;
+const environmentBalls = Array.from({ length: numEnvironmentBalls }, () => ({
+    x: Math.random() * (maxX - ballRadius * 2) + ballRadius,
+    y: Math.random() * (maxY - ballRadius * 2) + ballRadius,
+}));
+const blueBall = { x: maxX / 4, y: maxY / 2, vx: maxSpeed, vy: maxSpeed, path: [] };
+const redBall = { x: (maxX * 3) / 4, y: maxY / 2, vx: maxSpeed, vy: maxSpeed, path: [] };
+let observationTimeElapsed = false;
+
+function calculateEntropy(path) {
+    const segmentLengths = [];
+    for (let i = 1; i < path.length; i++) {
+        const dx = path[i].x - path[i - 1].x;
+        const dy = path[i].y - path[i - 1].y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        segmentLengths.push(length);
+    }
+    const numSegments = segmentLengths.length;
+    const entropy = -segmentLengths.reduce((sum, length) => {
+        const probability = length / numSegments;
+        return sum + probability * Math.log2(probability);
+    }, 0);
+    return entropy;
+}
+
+function moveRedBall(ball) {
+    // Teleport red ball if collision with environment balls
+    for (const envBall of environmentBalls) {
+        const dx = envBall.x - ball.x;
+        const dy = envBall.y - ball.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 2 * ballRadius) {
+            ball.x = Math.random() * (maxX - ballRadius * 2) + ballRadius;
+            ball.y = Math.random() * (maxY - ballRadius * 2) + ballRadius;
+            break;
+        }
+    }
+    // Bounce off the walls
+    if (ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
+        ball.vx *= -1;
+    }
+    if (ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
+        ball.vy *= -1;
+    }
+    // Update position based on velocity
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    // Store the current position in the path
+    ball.path.push({
+        x: ball.x,
+        y: ball.y
     });
+}
 
-    function predictNextPosition(inputArray) {
-        const inputTensor = tf.tensor2d([inputArray]);
-        const normalizedInput = normalizeInputData(inputArray, maxX, maxY);
-        const prediction = model.predict(tf.tensor2d([normalizedInput]));
-        const predictedPosition = prediction.arraySync()[0];
-        inputTensor.dispose();
-        prediction.dispose();
-        const denormalizedPosition = denormalizeOutputData(predictedPosition[0], predictedPosition[1], maxX, maxY);
-        return denormalizedPosition;
-    }
-
-    function predictNextPositions(inputArray, numPositions) {
-        const predictedPositions = [];
-        for (let i = 0; i < numPositions; i++) {
-            const prediction = predictNextPosition(inputArray);
-            inputArray = [prediction.x, prediction.y, ...inputArray.slice(2)];
-            predictedPositions.push(prediction);
+function moveBlueBall(ball) {
+    // Apply gravitational force from environment balls
+    for (const envBall of environmentBalls) {
+        const dx = envBall.x - ball.x;
+        const dy = envBall.y - ball.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 3 * ballRadius) {
+            const angle = Math.atan2(dy, dx);
+            ball.vx += gravitationalForce * Math.cos(angle);
+            ball.vy += gravitationalForce * Math.sin(angle);
         }
-        return predictedPositions;
     }
-
-    function normalizeInputData(inputArray, maxX, maxY) {
-        const normalizedX = inputArray[0] / maxX;
-        const normalizedY = inputArray[1] / maxY;
-        const normalizedObstacles = inputArray.slice(2).map((value, index) => {
-            if (index % 2 === 0) {
-                // X-coordinate of obstacle
-                return value / maxX;
-            } else {
-                // Y-coordinate of obstacle
-                return value / maxY;
-            }
-        });
-
-        return [normalizedX, normalizedY, ...normalizedObstacles];
+    // Bounce off the walls
+    if (ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
+        ball.vx *= -1;
     }
-
-    function denormalizeOutputData(normalizedX, normalizedY, maxX, maxY) {
-        const denormalizedX = (normalizedX * maxX) + (maxX / 2);
-        const denormalizedY = (normalizedY * maxY) + (maxY / 2);
-        return { x: denormalizedX, y: denormalizedY };
+    if (ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
+        ball.vy *= -1;
     }
+    // Update position based on velocity
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    // Store the current position in the path
+    ball.path.push({
+        x: ball.x,
+        y: ball.y
+    });
+}
 
-    function updateSimulation() {
-        moveRedBall(individualBalls[1]);
-        const currentPosition = {
-            x: individualBalls[0].x,
-            y: individualBalls[0].y
-        };
-        individualBalls[0].path.push({
-            x: currentPosition.x,
-            y: currentPosition.y
-        });
-
-        let inputArray = Array(2 + numEnvironmentBalls * 2).fill(0);
-        inputArray[0] = currentPosition.x;
-        inputArray[1] = currentPosition.y;
-        obstaclePositions = environmentBalls.map(ball => ({
-            x: ball.x,
-            y: ball.y
-        }));
-        obstaclePositions.forEach((obstacle, index) => {
-            inputArray[index * 2 + 2] = obstacle.x;
-            inputArray[index * 2 + 3] = obstacle.y;
-        });
-
-        const numPositionsToPredict = 10;
-        const predictedPositions = predictNextPositions(inputArray, numPositionsToPredict);
-
-        draw(predictedPositions, inputArray);
-        moveGreenBall(individualBalls[0]);
+function predictPath(ball, observationTime) {
+    const numSteps = observationTime * 60;
+    const predictedPath = [];
+    const tempBall = { ...ball };
+    for (let i = 0; i < numSteps; i++) {
+        moveBlueBall(tempBall);
+        predictedPath.push({ x: tempBall.x, y: tempBall.y });
     }
+    return predictedPath;
+}
 
-    function draw(predictedPositions, inputArray) {
-        ctx.clearRect(0, 0, maxX, maxY);
-        ctx.fillStyle = 'lightblue';
-        environmentBalls.forEach(ball => {
-            ctx.beginPath();
-            ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.closePath();
-        });
+function drawPredictedPath(predictedPath) {
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'yellow';
+    ctx.beginPath();
+    ctx.moveTo(predictedPath[0].x, predictedPath[0].y);
+    for (let i = 1; i < predictedPath.length; i++) {
+        ctx.lineTo(predictedPath[i].x, predictedPath[i].y);
+    }
+    ctx.stroke();
+    ctx.closePath();
+    ctx.setLineDash([]);
+}
 
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = 'yellow';
+function draw() {
+    ctx.clearRect(0, 0, maxX, maxY);
+    // Draw environment balls
+    ctx.fillStyle = 'lightblue';
+    environmentBalls.forEach(ball => {
         ctx.beginPath();
-        inputArray = normalizeInputData(inputArray, maxX, maxY);
-        ctx.moveTo(inputArray[0], inputArray[1]);
-
-        predictedPositions.forEach(position => {
-            ctx.lineTo(position.x, position.y);
-        });
-        ctx.stroke();
-        ctx.closePath();
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = 'blue';
-        ctx.beginPath();
-        ctx.arc(individualBalls[0].x, individualBalls[0].y, ballRadius, 0, Math.PI * 2);
+        ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.closePath();
-
-        ctx.fillStyle = 'red';
-        ctx.beginPath();
-        ctx.arc(individualBalls[1].x, individualBalls[1].y, ballRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.closePath();
-
-        ctx.strokeStyle = 'red';
-        ctx.beginPath();
-        ctx.moveTo(individualBalls[1].path[0].x, individualBalls[1].path[0].y);
-        individualBalls[1].path.forEach(point => {
-            ctx.lineTo(point.x, point.y);
-        });
-        ctx.stroke();
-        ctx.closePath();
-
-        ctx.strokeStyle = 'blue';
-        ctx.beginPath();
-        ctx.moveTo(individualBalls[0].path[0].x, individualBalls[0].path[0].y);
-        individualBalls[0].path.forEach(point => {
-            ctx.lineTo(point.x, point.y);
-        });
-        ctx.stroke();
-        ctx.closePath();
+    });
+    // Draw paths
+    ctx.strokeStyle = 'blue';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(blueBall.path[0].x, blueBall.path[0].y);
+    for (let i = 1; i < blueBall.path.length; i++) {
+        ctx.lineTo(blueBall.path[i].x, blueBall.path[i].y);
     }
-
-    function moveRedBall(ball) {
-        for (const envBall of environmentBalls) {
-            const dx = envBall.x - ball.x;
-            const dy = envBall.y - ball.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < 2 * ballRadius) {
-                ball.x = Math.random() * (maxX - ballRadius * 2) + ballRadius;
-                ball.y = Math.random() * (maxY - ballRadius * 2) + ballRadius;
-                break;
-            }
-        }
-
-        if (ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
-            ball.vx *= -1;
-        }
-        if (ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
-            ball.vy *= -1;
-        }
-
-        ball.x += ball.vx;
-        ball.y += ball.vy;
-        ball.path.push({
-            x: ball.x,
-            y: ball.y
-        });
+    ctx.stroke();
+    ctx.closePath();
+    ctx.strokeStyle = 'red';
+    ctx.beginPath();
+    ctx.moveTo(redBall.path[0].x, redBall.path[0].y);
+    for (let i = 1; i < redBall.path.length; i++) {
+        ctx.lineTo(redBall.path[i].x, redBall.path[i].y);
     }
+    ctx.stroke();
+    ctx.closePath();
+    // Draw individual balls
+    ctx.fillStyle = 'blue';
+    ctx.beginPath();
+    ctx.arc(blueBall.x, blueBall.y, ballRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.closePath();
+    ctx.fillStyle = 'red';
+    ctx.beginPath();
+    ctx.arc(redBall.x, redBall.y, ballRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.closePath();
+}
 
-    function moveGreenBall(ball) {
-        for (const envBall of environmentBalls) {
-            const dx = envBall.x - ball.x;
-            const dy = envBall.y - ball.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < 3 * ballRadius) {
-                const angle = Math.atan2(dy, dx);
-                ball.vx += gravitationalForce * Math.cos(angle);
-                ball.vy += gravitationalForce * Math.sin(angle);
-            }
-        }
+setInterval(function() {
+    moveRedBall(redBall);
+    moveBlueBall(blueBall);
+    draw();
+    histogram.line_segment_distribution({
+        individualBalls: [blueBall, redBall]
+    })
+    const blueBallEntropy = calculateEntropy(blueBall.path);
+    const redBallEntropy = calculateEntropy(redBall.path);
+    document.getElementById("title_item_1_2").innerText = blueBallEntropy.toFixed(2);
+    document.getElementById("title_item_2_2").innerText = redBallEntropy.toFixed(2);
 
-        if (ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
-            ball.vx *= -1;
+    if (!observationTimeElapsed) {
+        if (blueBall.path.length >= 10 * 60) { // 10 seconds * 60 frames per second
+            observationTimeElapsed = true;
         }
-        if (ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
-            ball.vy *= -1;
-        }
-
-        ball.x += ball.vx;
-        ball.y += ball.vy;
-        ball.path.push({
-            x: ball.x,
-            y: ball.y
-        });
+    } else {
+        const predictedPath = predictPath({ ...blueBall }, 10); // Predict for 10 seconds
+        drawPredictedPath(predictedPath);
     }
+}, 1000 / 30);
 
-    setInterval(updateSimulation, 1000 / 30);
-    document.querySelector(".lds-roller").style.display = "none";
-});
+document.querySelector(".lds-roller").style.display = "none";
+
+}, 2000)
