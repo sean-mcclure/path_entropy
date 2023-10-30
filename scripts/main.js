@@ -7,10 +7,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const maxY = canvas.height;
     const maxSpeed = 2;
     const gravitationalForce = 0.1;
-    let obstaclePositions = [];
-    const environmentBalls = Array.from({
-        length: numEnvironmentBalls
-    }, () => ({
+    const environmentBalls = Array.from({ length: numEnvironmentBalls }, () => ({
         x: Math.random() * (maxX - ballRadius * 2) + ballRadius,
         y: Math.random() * (maxY - ballRadius * 2) + ballRadius,
     }));
@@ -26,7 +23,7 @@ document.addEventListener("DOMContentLoaded", function() {
         vx: maxSpeed,
         vy: maxSpeed,
         path: []
-    }];    
+    }];
 
     const model = tf.sequential();
     model.add(tf.layers.dense({
@@ -45,19 +42,18 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function predictNextPosition(inputArray) {
         const inputTensor = tf.tensor2d([inputArray]);
-        const prediction = model.predict(inputTensor);
+        const normalizedInput = normalizeInputData(inputArray, maxX, maxY);
+        const prediction = model.predict(tf.tensor2d([normalizedInput]));
         const predictedPosition = prediction.arraySync()[0];
         inputTensor.dispose();
         prediction.dispose();
-        return {
-            x: predictedPosition[0], // Make sure x-value is correctly mapped in the prediction output
-            y: predictedPosition[1] // y-value is correctly mapped in the prediction output
-        };
+        const denormalizedPosition = denormalizeOutputData(predictedPosition[0], predictedPosition[1], maxX, maxY);
+        return denormalizedPosition;
     }
 
     function predictNextPositions(inputArray, numPositions) {
         const predictedPositions = [];
-        for(let i = 0; i < numPositions; i++) {
+        for (let i = 0; i < numPositions; i++) {
             const prediction = predictNextPosition(inputArray);
             inputArray = [prediction.x, prediction.y, ...inputArray.slice(2)];
             predictedPositions.push(prediction);
@@ -65,15 +61,25 @@ document.addEventListener("DOMContentLoaded", function() {
         return predictedPositions;
     }
 
-    function normalizeInputData(x, y, maxX, maxY) {
-        const normalizedX = x / maxX;
-        const normalizedY = y / maxY;
-        return [normalizedX, normalizedY];
+    function normalizeInputData(inputArray, maxX, maxY) {
+        const normalizedX = inputArray[0] / maxX;
+        const normalizedY = inputArray[1] / maxY;
+        const normalizedObstacles = inputArray.slice(2).map((value, index) => {
+            if (index % 2 === 0) {
+                // X-coordinate of obstacle
+                return value / maxX;
+            } else {
+                // Y-coordinate of obstacle
+                return value / maxY;
+            }
+        });
+
+        return [normalizedX, normalizedY, ...normalizedObstacles];
     }
 
     function denormalizeOutputData(normalizedX, normalizedY, maxX, maxY) {
-        const denormalizedX = normalizedX * maxX;
-        const denormalizedY = normalizedY * maxY;
+        const denormalizedX = (normalizedX * maxX) + (maxX / 2);
+        const denormalizedY = (normalizedY * maxY) + (maxY / 2);
         return { x: denormalizedX, y: denormalizedY };
     }
 
@@ -87,47 +93,27 @@ document.addEventListener("DOMContentLoaded", function() {
             x: currentPosition.x,
             y: currentPosition.y
         });
-        // Update obstacle positions (if applicable)
+
+        let inputArray = Array(2 + numEnvironmentBalls * 2).fill(0);
+        inputArray[0] = currentPosition.x;
+        inputArray[1] = currentPosition.y;
         obstaclePositions = environmentBalls.map(ball => ({
             x: ball.x,
             y: ball.y
         }));
-        // Construct input array
-        const inputArray = Array(2 + numEnvironmentBalls * 2).fill(0);
-        inputArray[0] = currentPosition.x;
-        inputArray[1] = currentPosition.y;
         obstaclePositions.forEach((obstacle, index) => {
             inputArray[index * 2 + 2] = obstacle.x;
             inputArray[index * 2 + 3] = obstacle.y;
         });
-        // Predict multiple positions ahead
-        const numPositionsToPredict = 10; // Adjust this based on your needs
+
+        const numPositionsToPredict = 10;
         const predictedPositions = predictNextPositions(inputArray, numPositionsToPredict);
-         // Denormalize predicted positions back to canvas dimensions
-         predictedPositions.forEach(position => {
-            const denormalizedPosition = denormalizeOutputData(position.x, position.y, maxX, maxY);
-            position.x = denormalizedPosition.x;
-            position.y = denormalizedPosition.y;
-        });
-        // Draw predicted path
-        drawPredictedPath(predictedPositions);
-        console.log(predictedPositions)
-        // Draw blue ball's path
-        ctx.strokeStyle = 'blue';
-        ctx.beginPath();
-        ctx.moveTo(individualBalls[0].path[0].x, individualBalls[0].path[0].y);
-        individualBalls[0].path.forEach(point => {
-            ctx.lineTo(point.x, point.y);
-            console.log(point.x, point.y)
-        });
-        ctx.stroke();
-        ctx.closePath();
-        // Move green ball and draw
+
+        draw(predictedPositions, inputArray);
         moveGreenBall(individualBalls[0]);
-        draw();
     }
 
-    function draw() {
+    function draw(predictedPositions, inputArray) {
         ctx.clearRect(0, 0, maxX, maxY);
         ctx.fillStyle = 'lightblue';
         environmentBalls.forEach(ball => {
@@ -136,19 +122,33 @@ document.addEventListener("DOMContentLoaded", function() {
             ctx.fill();
             ctx.closePath();
         });
-        // Draw blue ball
+
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = 'yellow';
+        ctx.beginPath();
+        inputArray = normalizeInputData(inputArray, maxX, maxY);
+        ctx.moveTo(inputArray[0], inputArray[1]);
+
+        predictedPositions.forEach(position => {
+            ctx.lineTo(position.x, position.y);
+        });
+        ctx.stroke();
+        ctx.closePath();
+        ctx.setLineDash([]);
+
         ctx.fillStyle = 'blue';
         ctx.beginPath();
         ctx.arc(individualBalls[0].x, individualBalls[0].y, ballRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.closePath();
-        // Draw red ball
+
         ctx.fillStyle = 'red';
         ctx.beginPath();
         ctx.arc(individualBalls[1].x, individualBalls[1].y, ballRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.closePath();
-        // Draw red ball path
+
         ctx.strokeStyle = 'red';
         ctx.beginPath();
         ctx.moveTo(individualBalls[1].path[0].x, individualBalls[1].path[0].y);
@@ -157,7 +157,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
         ctx.stroke();
         ctx.closePath();
-        // Draw blue ball path
+
         ctx.strokeStyle = 'blue';
         ctx.beginPath();
         ctx.moveTo(individualBalls[0].path[0].x, individualBalls[0].path[0].y);
@@ -169,28 +169,26 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function moveRedBall(ball) {
-        // Teleport red ball if collision with environment balls
-        for(const envBall of environmentBalls) {
+        for (const envBall of environmentBalls) {
             const dx = envBall.x - ball.x;
             const dy = envBall.y - ball.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if(distance < 2 * ballRadius) {
+            if (distance < 2 * ballRadius) {
                 ball.x = Math.random() * (maxX - ballRadius * 2) + ballRadius;
                 ball.y = Math.random() * (maxY - ballRadius * 2) + ballRadius;
                 break;
             }
         }
-        // Bounce off the walls
-        if(ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
+
+        if (ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
             ball.vx *= -1;
         }
-        if(ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
+        if (ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
             ball.vy *= -1;
         }
-        // Update position based on velocity
+
         ball.x += ball.vx;
         ball.y += ball.vy;
-        // Store the current position in the path
         ball.path.push({
             x: ball.x,
             y: ball.y
@@ -198,48 +196,32 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function moveGreenBall(ball) {
-        // Apply gravitational force from environment balls
-        for(const envBall of environmentBalls) {
+        for (const envBall of environmentBalls) {
             const dx = envBall.x - ball.x;
             const dy = envBall.y - ball.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if(distance < 3 * ballRadius) {
+            if (distance < 3 * ballRadius) {
                 const angle = Math.atan2(dy, dx);
                 ball.vx += gravitationalForce * Math.cos(angle);
                 ball.vy += gravitationalForce * Math.sin(angle);
             }
         }
-        // Bounce off the walls
-        if(ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
+
+        if (ball.x <= ballRadius || ball.x >= maxX - ballRadius) {
             ball.vx *= -1;
         }
-        if(ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
+        if (ball.y <= ballRadius || ball.y >= maxY - ballRadius) {
             ball.vy *= -1;
         }
-        // Update position based on velocity
+
         ball.x += ball.vx;
         ball.y += ball.vy;
-        // Store the current position in the path
         ball.path.push({
             x: ball.x,
             y: ball.y
         });
     }
 
-    function drawPredictedPath(predictedPositions) {
-        const predictedLineThickness = 3; // Set your desired line thickness here
-        ctx.lineWidth = predictedLineThickness;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = 'yellow';
-        predictedPositions.forEach(position => {
-            ctx.beginPath();
-            ctx.moveTo(position.x, position.y);
-            ctx.lineTo(position.x, position.y);
-            ctx.stroke();
-            ctx.closePath();
-        });
-        ctx.setLineDash([]);
-    }
     setInterval(updateSimulation, 1000 / 30);
     document.querySelector(".lds-roller").style.display = "none";
 });
